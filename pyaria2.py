@@ -4,6 +4,7 @@
 import subprocess
 import xmlrpc.client
 import os
+import time
 
 DEFAULT_HOST = 'localhost'
 DEFAULT_PORT = 6800
@@ -11,13 +12,12 @@ SERVER_URI_FORMAT = 'http://{}:{:d}/rpc'
 
 
 class PyAria2(object):
-
     def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, session=None):
 
-        if not is_aria2_installed():
+        if not isAria2Installed():
             raise Exception('aria2 is not installed, please install it before.')
 
-        if is_aria2rpc_running():
+        if not isAria2rpcRunning():
             cmd = 'aria2c' \
                   ' --enable-rpc' \
                   ' --rpc-listen-port %d' \
@@ -32,9 +32,19 @@ class PyAria2(object):
                        ' --save-session=%s' % (session, session)
 
             subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-            print('aria2c RPC server is starting.')
+
+            count = 0
+            while True:
+                if isAria2rpcRunning():
+                    break
+                else:
+                    count += 1
+                    time.sleep(3)
+                if count == 5:
+                    raise Exception('aria2 RPC server started failure.')
+            print('aria2 RPC server is started.')
         else:
-            print('aria2c RPC server is already running.')
+            print('aria2 RPC server is already running.')
 
         server_uri = SERVER_URI_FORMAT.format(host, port)
         self.server = xmlrpc.client.ServerProxy(server_uri, allow_none=True)
@@ -138,17 +148,19 @@ class PyAria2(object):
     def multicall(self, methods):
         return self.server.aria2.multicall(methods)
 
-def is_aria2_installed():
+
+def isAria2Installed():
     for cmdpath in os.environ['PATH'].split(':'):
         if os.path.isdir(cmdpath) and 'aria2c' in os.listdir(cmdpath):
             return True
 
     return False
 
-def is_aria2rpc_running():
+
+def isAria2rpcRunning():
     pgrep_process = subprocess.Popen('pgrep -l aria2', shell=True, stdout=subprocess.PIPE)
 
-    if pgrep_process.stdout.readline() != b'':
-        return True
-    else:
+    if pgrep_process.stdout.readline() == b'':
         return False
+    else:
+        return True
