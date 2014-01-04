@@ -14,29 +14,27 @@ class PyAria2(object):
 
     def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, session=None):
 
-        is_aria2c_installed = False
-        for cmdpath in os.environ['PATH'].split(':'):
-            if os.path.isdir(cmdpath) and 'aria2c' in os.listdir(cmdpath):
-                is_aria2c_installed = True
-
-        if not is_aria2c_installed:
+        if not is_aria2_installed():
             raise Exception('aria2 is not installed, please install it before.')
 
-        cmd = 'aria2c' \
-              ' --enable-rpc' \
-              ' --rpc-listen-port %d' \
-              ' --continue' \
-              ' --max-concurrent-downloads=20' \
-              ' --max-connection-per-server=10' \
-              ' --rpc-max-request-size=1024M' % port
+        if is_aria2rpc_running():
+            cmd = 'aria2c' \
+                  ' --enable-rpc' \
+                  ' --rpc-listen-port %d' \
+                  ' --continue' \
+                  ' --max-concurrent-downloads=20' \
+                  ' --max-connection-per-server=10' \
+                  ' --rpc-max-request-size=1024M' % port
 
-        if not session is None:
-            cmd += ' --input-file=%s' \
-                   ' --save-session-interval=60' \
-                   ' --save-session=%s' % (session, session)
+            if not session is None:
+                cmd += ' --input-file=%s' \
+                       ' --save-session-interval=60' \
+                       ' --save-session=%s' % (session, session)
 
-        if host == DEFAULT_HOST:
-            self.aria2_process = subprocess.Popen(cmd, shell=True)
+            subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+            print('aria2c RPC server is starting.')
+        else:
+            print('aria2c RPC server is already running.')
 
         server_uri = SERVER_URI_FORMAT.format(host, port)
         self.server = xmlrpc.client.ServerProxy(server_uri, allow_none=True)
@@ -139,3 +137,18 @@ class PyAria2(object):
 
     def multicall(self, methods):
         return self.server.aria2.multicall(methods)
+
+def is_aria2_installed():
+    for cmdpath in os.environ['PATH'].split(':'):
+        if os.path.isdir(cmdpath) and 'aria2c' in os.listdir(cmdpath):
+            return True
+
+    return False
+
+def is_aria2rpc_running():
+    pgrep_process = subprocess.Popen('pgrep -l aria2', shell=True, stdout=subprocess.PIPE)
+
+    if pgrep_process.stdout.readline() != b'':
+        return True
+    else:
+        return False
