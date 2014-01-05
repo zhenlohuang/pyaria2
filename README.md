@@ -10,3 +10,4 @@ aria2 is a lightweight multi-protocol & multi-source command-line download utili
 
 Document
 =======
+http://aria2.sourceforge.net/manual/en/html/aria2c.html#rpc-interface
